@@ -4,6 +4,23 @@ All notable changes to Cadence are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-09-09
+### Added
+- Achievements system: 12 achievements, an unlock engine, an Achievements screen,
+  and unlock toasts + a results-screen summary.
+- Keyboard heatmap on the results screen (accuracy / speed toggle), drawn as
+  bespoke SVG.
+- Custom-text mode UI (textarea on the home screen).
+- Keyboard layout + finger map module.
+- Storage ports for achievements and curriculum progress.
+- Navigation tabs (Play / Achievements).
+- 5 achievement unit tests (19 total).
+
+### Fixed
+- Hardened achievement predicates against malformed runs (ISSUE-0.2.0-1).
+- Retained per-key stats for the heatmap toggle (ISSUE-0.2.0-2).
+- Escaped custom-text input to avoid HTML injection (ISSUE-0.2.0-3).
+
 ## [0.1.0] — 2026-09-09
 ### Added
 - Portable, deterministic domain core: `TypingEngine`, scoring, seeded text
@@ -32,4 +49,5 @@ adheres to [Semantic Versioning](https://semver.org/).
   core maps 1:1 to the architecture's C#/Avalonia design for a later port
   (ISSUE-0.1.0-1).
 
+[0.2.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.2.0
 [0.1.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.1.0

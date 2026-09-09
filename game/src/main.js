@@ -5,21 +5,22 @@ import './styles/app.css';
 import { Modes, listModes } from './domain/modes.js';
 import { KeyAction } from './domain/primitives.js';
 import { perKeyStats } from './domain/scoring.js';
+import { ACHIEVEMENTS, evaluate as evalAchievements } from './domain/achievements.js';
 import { GameSession } from './app/session.js';
 import { AudioEngine } from './app/audio.js';
-import { Runs, PersonalBests, Settings, KeyModelStore } from './app/storage.js';
+import { Runs, PersonalBests, Settings, KeyModelStore, Achievements } from './app/storage.js';
 import { icon } from './ui/icons.js';
 import { TypingSurface } from './ui/typing-surface.js';
 import { renderResults } from './ui/results-view.js';
+import { renderHeatmap } from './ui/heatmap.js';
 
 const app = document.getElementById('app');
 const audio = new AudioEngine();
 
-// --- app state ---
 const state = {
-  screen: 'home', // home | playing | results
+  screen: 'home', // home | playing | results | achievements
   modeId: 'timed',
-  config: { seconds: 30, count: 25, length: 'medium' },
+  config: { seconds: 30, count: 25, length: 'medium', customText: '' },
   session: null,
   surface: null,
   streak: 0,
@@ -27,6 +28,8 @@ const state = {
   raf: 0,
   lastResult: null,
   lastPb: null,
+  lastPerKey: [],
+  lastNewAch: [],
   settings: Settings.get(),
 };
 
@@ -40,8 +43,12 @@ function applySettings() {
 
 // ---------------------------------------------------------------- rendering
 function render() {
-  if (state.screen === 'playing') return; // playing screen is managed imperatively
-  app.innerHTML = topbar() + (state.screen === 'results' ? resultsScreen() : homeScreen()) + footer();
+  if (state.screen === 'playing') return;
+  let body = '';
+  if (state.screen === 'results') body = resultsScreen();
+  else if (state.screen === 'achievements') body = achievementsScreen();
+  else body = homeScreen();
+  app.innerHTML = topbar() + body + footer();
   bindChrome();
   if (state.screen === 'home') bindHome();
   if (state.screen === 'results') bindResults();
@@ -56,6 +63,10 @@ function topbar() {
       <span class="name">Cadence</span>
       <span class="mode-label">${label}</span>
     </div>
+    <nav class="nav">
+      <button data-nav="home" class="${state.screen === 'home' ? 'active' : ''}">Play</button>
+      <button data-nav="achievements" class="${state.screen === 'achievements' ? 'active' : ''}">Achievements</button>
+    </nav>
     <div class="topbar-actions">
       <button class="btn ghost icon-only" data-act="toggle-sound" title="Sound">${icon(state.settings.sound ? 'volume' : 'mute')}</button>
       <button class="btn ghost icon-only" data-act="cycle-theme" title="Theme">${icon('gear')}</button>
@@ -83,6 +94,13 @@ function homeScreen() {
     .map((m) => `<button class="seg-mode btn ${m.id === state.modeId ? 'primary' : ''}" data-mode="${m.id}">${modeIcon(m.id)} ${m.label}</button>`)
     .join('');
 
+  const customPanel = state.modeId === 'custom'
+    ? `<div class="panel" style="padding-top:0">
+         <label style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)">Your text</label>
+         <textarea id="custom-text" placeholder="Paste or type the passage you want to practise...">${escapeHtml(state.config.customText)}</textarea>
+       </div>`
+    : '';
+
   return `
   <section class="setup">
     <div class="group">
@@ -98,6 +116,7 @@ function homeScreen() {
       <button class="btn primary" data-act="start">${icon('play', 18)} Start</button>
     </div>
   </section>
+  ${customPanel}
   <div class="stage">
     <div style="text-align:center;color:var(--dim);font-family:var(--mono);max-width:560px">
       <div style="font-size:15px;line-height:1.7">Pick a mode and press Start. The clock begins on your first keystroke.
@@ -150,12 +169,28 @@ function historyTable() {
     <tbody>${rows}</tbody></table></div>`;
 }
 
+function achievementsScreen() {
+  const unlocked = Achievements.unlocked();
+  const cards = ACHIEVEMENTS.map((a) => {
+    const has = unlocked.has(a.id);
+    return `<div class="ach-card ${has ? '' : 'locked'}">
+      <span class="ach-ico">${icon(has ? a.icon : 'close', 22)}</span>
+      <div><div class="ach-title">${a.title}</div><div class="ach-desc">${a.desc}</div></div>
+    </div>`;
+  }).join('');
+  const count = unlocked.size;
+  return `<div class="panel">
+    <h2>Achievements <span style="color:var(--dim);font-family:var(--mono);font-size:14px">${count} / ${ACHIEVEMENTS.length}</span></h2>
+    <div class="ach-grid">${cards}</div>
+  </div>`;
+}
+
 function resultsScreen() {
-  return renderResults(state.lastResult, state.lastPb);
+  return renderResults(state.lastResult, state.lastPb, state.lastPerKey, state.lastNewAch);
 }
 
 function footer() {
-  return `<div class="foot">Cadence v0.1.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
+  return `<div class="foot">Cadence v0.2.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
 }
 
 // ---------------------------------------------------------------- bindings
@@ -173,6 +208,12 @@ function bindChrome() {
     render();
     toast(`Theme: ${next}`);
   };
+  app.querySelectorAll('[data-nav]').forEach((b) => {
+    b.onclick = () => {
+      state.screen = b.dataset.nav;
+      render();
+    };
+  });
 }
 
 function bindHome() {
@@ -193,6 +234,8 @@ function bindHome() {
       };
     });
   }
+  const ta = app.querySelector('#custom-text');
+  if (ta) ta.oninput = () => { state.config.customText = ta.value; };
   app.querySelector('[data-act="start"]').onclick = startRun;
 }
 
@@ -203,6 +246,18 @@ function bindResults() {
     state.screen = 'home';
     render();
   };
+  // heatmap toggle
+  const toggle = app.querySelector('[data-seg="heatmode"]');
+  if (toggle) {
+    toggle.querySelectorAll('button').forEach((b) => {
+      b.onclick = () => {
+        toggle.querySelectorAll('button').forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        const body = app.querySelector('#heatmap-body');
+        if (body) body.innerHTML = renderHeatmap(state.lastPerKey, b.dataset.val);
+      };
+    });
+  }
 }
 
 // ---------------------------------------------------------------- gameplay
@@ -213,6 +268,7 @@ function startRun(seed) {
     seconds: state.config.seconds,
     count: state.config.count,
     length: state.config.length,
+    text: state.config.customText,
     weakKeys: new Set(KeyModelStore.weakestKeys(8)),
   };
   const plan = mode.createPlan(opts);
@@ -226,9 +282,7 @@ function startRun(seed) {
 function renderPlaying(plan) {
   app.innerHTML =
     topbar() +
-    `<div class="stage">
-       <div id="surface"></div>
-     </div>
+    `<div class="stage"><div id="surface"></div></div>
      <div class="hud" id="hud"></div>
      <div class="hints"><kbd>Esc</kbd> quit &nbsp; <kbd>Tab</kbd> then <kbd>Enter</kbd> restart</div>`;
   bindChrome();
@@ -236,20 +290,14 @@ function renderPlaying(plan) {
   const surfaceEl = app.querySelector('#surface');
   state.surface = new TypingSurface(surfaceEl);
   state.surface.render(state.session.snapshot());
-  state.surface.setBlurred(true);
 
-  // capture keys on the whole document while playing
   document.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('blur', onWindowBlur);
-
   state.session.on('finish', ({ result }) => onFinish(result));
-
-  // click anywhere on the stage focuses (starts audio context)
   surfaceEl.onclick = () => audio._ensure();
 
   startLoop();
   updateHud();
-  // focus so the browser routes keystrokes (and remove blur once started)
   surfaceEl.tabIndex = 0;
   surfaceEl.focus();
   state.surface.setBlurred(false);
@@ -260,46 +308,21 @@ function onKeyDown(e) {
   if (state.screen !== 'playing') return;
   const s = state.session;
 
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    quitToHome();
-    return;
-  }
-  // Tab then Enter restarts
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    tabHeld = true;
-    return;
-  }
-  if (e.key === 'Enter' && tabHeld) {
-    e.preventDefault();
-    tabHeld = false;
-    startRun(s.plan.seed);
-    return;
-  }
+  if (e.key === 'Escape') { e.preventDefault(); quitToHome(); return; }
+  if (e.key === 'Tab') { e.preventDefault(); tabHeld = true; return; }
+  if (e.key === 'Enter' && tabHeld) { e.preventDefault(); tabHeld = false; startRun(s.plan.seed); return; }
   tabHeld = false;
 
   const now = performance.now();
   let res = null;
 
-  if (e.key === 'Backspace') {
-    e.preventDefault();
-    res = s.input({ action: KeyAction.Backspace }, now);
-  } else if (e.key === ' ') {
-    e.preventDefault();
-    res = s.input({ action: KeyAction.WhitespaceAdvance }, now);
-  } else if (e.key === 'Enter') {
-    // Enter acts as whitespace for quotes with line breaks; else ignore
-    res = s.input({ action: KeyAction.WhitespaceAdvance }, now);
-  } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    e.preventDefault();
-    res = s.input({ text: e.key }, now);
-  } else {
-    return;
-  }
+  if (e.key === 'Backspace') { e.preventDefault(); res = s.input({ action: KeyAction.Backspace }, now); }
+  else if (e.key === ' ') { e.preventDefault(); res = s.input({ action: KeyAction.WhitespaceAdvance }, now); }
+  else if (e.key === 'Enter') { res = s.input({ action: KeyAction.WhitespaceAdvance }, now); }
+  else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); res = s.input({ text: e.key }, now); }
+  else return;
 
   if (res) {
-    // audio + streak
     if (res.outcome === 'correct') {
       state.streak++;
       state.bestStreak = Math.max(state.bestStreak, state.streak);
@@ -316,7 +339,6 @@ function onKeyDown(e) {
 }
 
 function onWindowBlur() {
-  // Pause semantics: focus loss stops the run's forward progress visually.
   if (state.screen === 'playing' && state.surface) state.surface.setBlurred(true);
 }
 
@@ -325,7 +347,7 @@ function startLoop() {
   const step = () => {
     if (state.screen !== 'playing') return;
     const now = performance.now();
-    state.session.tick(now); // let timed modes expire
+    state.session.tick(now);
     if (state.session.plan.limitMs) updateHud();
     state.raf = requestAnimationFrame(step);
   };
@@ -372,13 +394,26 @@ function onFinish(result) {
   result.bestStreak = state.bestStreak;
   Runs.add(result);
   const pb = PersonalBests.consider(result);
-  KeyModelStore.ingest(perKeyStats(state.session.engine.samples));
+  const perKey = perKeyStats(state.session.engine.samples);
+  KeyModelStore.ingest(perKey);
+
+  // achievements
+  const ctx = {
+    run: result,
+    totalRuns: Runs.all().length,
+    bestWpmEver: Math.max(...Runs.all().map((r) => r.netWpm), 0),
+  };
+  const newly = evalAchievements(ctx, Achievements.unlocked());
+  if (newly.length) Achievements.add(newly.map((a) => a.id));
 
   state.lastResult = result;
   state.lastPb = pb;
+  state.lastPerKey = perKey;
+  state.lastNewAch = newly;
   state.screen = 'results';
   render();
   if (pb.beaten) toast('New personal best', 'good');
+  newly.forEach((a, i) => setTimeout(() => toast(`Unlocked: ${a.title}`, 'good'), 300 * (i + 1)));
 }
 
 function quitToHome() {
@@ -389,7 +424,11 @@ function quitToHome() {
   render();
 }
 
-// ---------------------------------------------------------------- toast
+// ---------------------------------------------------------------- helpers
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
 function toast(msg, kind = '') {
   let wrap = document.querySelector('.toast-wrap');
   if (!wrap) {
@@ -404,5 +443,4 @@ function toast(msg, kind = '') {
   setTimeout(() => t.remove(), 2200);
 }
 
-// ---------------------------------------------------------------- boot
 render();

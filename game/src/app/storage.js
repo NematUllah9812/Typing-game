@@ -8,6 +8,8 @@ const K = {
   pbs: `${NS}:pbs`,
   settings: `${NS}:settings`,
   keymodel: `${NS}:keymodel`,
+  achievements: `${NS}:achievements`,
+  curriculum: `${NS}:curriculum`,
 };
 
 function read(key, fallback) {
@@ -112,6 +114,38 @@ export const KeyModelStore = {
       .sort((a, b) => a[1].accuracy - b[1].accuracy)
       .slice(0, n)
       .map(([k]) => k);
+  },
+};
+
+/** IAchievementRepository */
+export const Achievements = {
+  unlocked() {
+    return new Set(read(K.achievements, []));
+  },
+  add(ids) {
+    const set = this.unlocked();
+    for (const id of ids) set.add(id);
+    write(K.achievements, [...set]);
+    return set;
+  },
+};
+
+/** Curriculum progress — highest lesson index cleared per unit. §7.1 */
+export const CurriculumProgress = {
+  get() {
+    return read(K.curriculum, { cleared: {} });
+  },
+  clear(lessonId, result) {
+    const p = read(K.curriculum, { cleared: {} });
+    const prev = p.cleared[lessonId];
+    if (!prev || result.netWpm > prev.netWpm) {
+      p.cleared[lessonId] = { netWpm: result.netWpm, accuracy: result.accuracy, at: result.startedUtc };
+      write(K.curriculum, p);
+    }
+    return p;
+  },
+  isCleared(lessonId) {
+    return !!read(K.curriculum, { cleared: {} }).cleared[lessonId];
   },
 };
 

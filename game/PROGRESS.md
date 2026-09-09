@@ -6,6 +6,39 @@ release list. Versioning follows **SemVer** (MAJOR.MINOR.PATCH).
 
 ---
 
+## v0.2.0 — Achievements, heatmap & custom text (2026-09-09)
+
+**Status:** Complete and running. 19/19 tests passing. Live dev preview.
+
+**Theme of this version:** deepen the single-run experience — reward progress,
+visualise weaknesses, and let users bring their own text.
+
+### Delivered
+- `achievements.js` — 12 pure achievement rules (WPM tiers, flawless, steady,
+  streaks, marathon, dedicated, scholar) with a pure `evaluate()` that returns
+  only newly-unlocked items. Mirrors §11.2.
+- `layout.js` — QWERTY rows + finger map (foundation for per-finger analytics
+  and the heatmap). Mirrors §6.4 / §8.1.
+- `ui/heatmap.js` — bespoke SVG keyboard heatmap, toggleable between accuracy
+  and speed (latency), coloured from per-key stats. Mirrors §14.3.
+- Results screen now shows: newly-unlocked achievements, the per-word chart, and
+  the keyboard heatmap with a live accuracy/speed toggle.
+- Achievements screen (new nav tab) showing all achievements locked/unlocked
+  with a progress count.
+- Custom-text mode UI: a textarea on the home screen feeds the Custom mode.
+- Storage: `Achievements` and `CurriculumProgress` repositories added (ports for
+  §11.2 and §7.1; curriculum consumed in v0.3).
+- Navigation tabs (Play / Achievements) in the top bar.
+- Tests: `test/achievements.test.js` (5 tests) — unlock logic, idempotency,
+  threshold correctness, schema integrity.
+
+### Not yet built (carried forward)
+- Curriculum / lessons tree — §7.1 (storage port ready; v0.3)
+- Arcade modes — §7.2 (v0.4 / v0.5)
+- Localization framework — §17.2 (v1.0)
+
+---
+
 ## v0.1.0 — Playable core (2026-09-09)
 
 **Status:** Complete and running. 14/14 domain tests passing. Live dev preview.

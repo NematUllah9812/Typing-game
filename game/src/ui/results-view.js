@@ -2,11 +2,38 @@
 // No third-party chart library (§9.5) — the per-word chart is drawn by hand.
 
 import { icon } from './icons.js';
+import { renderHeatmap } from './heatmap.js';
 
-export function renderResults(result, pbInfo) {
+export function renderResults(result, pbInfo, perKey = [], newAchievements = []) {
   const chart = perWordChart(result.perWord);
   const pbBadge = pbInfo?.beaten
     ? `<span class="pb-flag">${icon('trophy', 16)} new personal best</span>`
+    : '';
+
+  const heatmap = perKey.length
+    ? `<div class="chart-card">
+         <div class="card-head">
+           <h3>Key accuracy heatmap</h3>
+           <div class="seg heatmap-toggle" data-seg="heatmode">
+             <button class="active" data-val="accuracy">accuracy</button>
+             <button data-val="latency">speed</button>
+           </div>
+         </div>
+         <div id="heatmap-body">${renderHeatmap(perKey, 'accuracy')}</div>
+       </div>`
+    : '';
+
+  const achievements = newAchievements.length
+    ? `<div class="chart-card">
+         <h3>Achievements unlocked</h3>
+         <div class="ach-row">
+           ${newAchievements.map((a) => `
+             <div class="ach-badge">
+               <span class="ach-ico">${icon(a.icon, 22)}</span>
+               <div><div class="ach-title">${a.title}</div><div class="ach-desc">${a.desc}</div></div>
+             </div>`).join('')}
+         </div>
+       </div>`
     : '';
 
   return `
@@ -23,10 +50,14 @@ export function renderResults(result, pbInfo) {
       <div class="s"><div class="v tnum">${(result.durationMs / 1000).toFixed(1)}s</div><div class="l">time</div></div>
     </div>
 
+    ${achievements}
+
     <div class="chart-card">
       <h3>Per-word WPM</h3>
       ${chart}
     </div>
+
+    ${heatmap}
 
     <div class="actions">
       <button class="btn primary" data-act="retry">${icon('restart', 18)} Retry (same text)</button>

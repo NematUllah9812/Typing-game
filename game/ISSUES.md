@@ -9,6 +9,40 @@ Severity: **blocker** (stops build/run) · **bug** (wrong behaviour) ·
 
 ---
 
+## v0.2.0
+
+### ISSUE-0.2.0-1 — Achievement predicates could crash a run on bad input
+- **Severity:** bug (defensive)
+- **Symptom:** a malformed run object passed to an achievement `test()` would
+  throw, and (without guarding) could break the whole finish/results flow.
+- **Root cause:** predicates read nested fields (e.g. `bestStreak`) that might be
+  undefined for older stored runs.
+- **Fix:** wrapped each predicate call in `evaluate()` in try/catch, and used
+  nullish fallbacks (`c.run.bestStreak ?? 0`) in the rules. A bad predicate now
+  silently skips rather than aborting the run.
+- **Status:** resolved.
+
+### ISSUE-0.2.0-2 — Heatmap needed run data that survives finish
+- **Severity:** minor
+- **Symptom:** the results heatmap toggle (accuracy/speed) re-rendered from
+  per-key stats, but those were computed once and discarded.
+- **Root cause:** per-key stats were only used to update the persisted key model,
+  not retained for the results UI.
+- **Fix:** store the finished run's `perKey` array in app state (`lastPerKey`) so
+  the toggle can re-render either view without recomputation.
+- **Status:** resolved.
+
+### ISSUE-0.2.0-3 — Custom-text HTML injection risk
+- **Severity:** bug (safety)
+- **Symptom:** user-supplied custom text rendered into the textarea value could
+  break out of the attribute/markup.
+- **Root cause:** interpolating raw user text into HTML.
+- **Fix:** added `escapeHtml()` for the textarea content; the typing surface
+  already renders text as DOM `textContent`, not HTML, so the play view was safe.
+- **Status:** resolved.
+
+---
+
 ## v0.1.0
 
 ### ISSUE-0.1.0-1 — No .NET SDK in the build environment
