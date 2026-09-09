@@ -10,6 +10,7 @@ const K = {
   keymodel: `${NS}:keymodel`,
   achievements: `${NS}:achievements`,
   curriculum: `${NS}:curriculum`,
+  arcade: `${NS}:arcade`,
 };
 
 function read(key, fallback) {
@@ -146,6 +147,26 @@ export const CurriculumProgress = {
   },
   isCleared(lessonId) {
     return !!read(K.curriculum, { cleared: {} }).cleared[lessonId];
+  },
+};
+
+/** Arcade high scores per arcade mode. */
+export const ArcadeScores = {
+  all() {
+    return read(K.arcade, {});
+  },
+  best(mode) {
+    return read(K.arcade, {})[mode] || null;
+  },
+  consider(mode, entry) {
+    const all = read(K.arcade, {});
+    const prev = all[mode];
+    const beaten = !prev || entry.score > prev.score;
+    if (beaten) {
+      all[mode] = entry;
+      write(K.arcade, all);
+    }
+    return { beaten, previous: prev || null };
   },
 };
 

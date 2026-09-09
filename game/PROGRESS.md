@@ -6,6 +6,37 @@ release list. Versioning follows **SemVer** (MAJOR.MINOR.PATCH).
 
 ---
 
+## v0.4.0 — Arcade: Falling Words (2026-09-09)
+
+**Status:** Complete and running. 32/32 tests passing. Live dev preview.
+
+**Theme of this version:** add the arcade half of the product — a real-time,
+canvas-rendered typing game distinct from the measured trainer.
+
+### Delivered
+- `arcade.js` — pure, deterministic `ArcadeGame` simulation: word spawning,
+  gravity, floor collisions, lives, wave-based difficulty ramp, combo multiplier,
+  scoring, accuracy. Time (`dt`) and randomness injected for testability.
+  Mirrors §7.2 / §7.3.
+- `ui/arcade-view.js` — `<canvas>` renderer reading design tokens from CSS
+  variables: falling words with typed-prefix colouring, active-word highlight,
+  urgency tint near the floor, DPR-aware crisp text, floor danger zone.
+  Mirrors §9.4.
+- **Arcade** nav tab + menu (with high-score display) + in-game HUD (score,
+  wave, combo, SVG life pips) + game-over screen with stats and high-score flag.
+- `ArcadeScores` storage port (per-mode high scores).
+- Real-time loop via `requestAnimationFrame` with a clamped `dt` so a stalled
+  tab can't teleport words through the floor.
+- Tests: `test/arcade.test.js` (7 tests) — spawning, clearing/scoring, combo
+  break, floor life-loss, game-over, determinism.
+
+### Not yet built (carried forward)
+- Wave Survival variant (falling-words foundation covers most of it) — §7.2
+- Ghost Race + replay recording/playback — §7.2 / §18 (v0.5)
+- Localization framework, accessibility polish, packaging notes — §17 / §22 (v1.0)
+
+---
+
 ## v0.3.0 — Curriculum & lessons tree (2026-09-09)
 
 **Status:** Complete and running. 25/25 tests passing. Live dev preview.

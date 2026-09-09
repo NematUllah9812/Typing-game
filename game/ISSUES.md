@@ -9,6 +9,40 @@ Severity: **blocker** (stops build/run) · **bug** (wrong behaviour) ·
 
 ---
 
+## v0.4.0
+
+### ISSUE-0.4.0-1 — Frame-time spikes teleported words through the floor
+- **Severity:** bug
+- **Symptom:** after a tab stall / alt-tab, the next animation frame had a huge
+  `dt`, moving falling words a large distance in one step — sometimes straight
+  past the floor, costing multiple lives unfairly (and skipping the collision
+  band).
+- **Root cause:** using the raw `requestAnimationFrame` delta with no clamp.
+- **Fix:** clamp `dt` to 0.05s per step in `arcadeLoop()` (matches the fixed-step
+  spirit of ARCHITECTURE §9.2). The simulation stays stable across stalls.
+- **Status:** resolved.
+
+### ISSUE-0.4.0-2 — Avoiding emoji for lives/combo indicators
+- **Severity:** note (policy)
+- **Symptom:** the quick way to show "lives" is filled/empty dots, and the first
+  draft used the ● / ○ characters.
+- **Root cause:** those are convenient but risk drifting toward emoji-like glyphs
+  and depend on font rendering; the project rule is vector SVG only.
+- **Fix:** replaced the character pips with inline SVG circle icons (filled =
+  life remaining, outline = lost). Consistent with §12 and the no-emoji policy.
+- **Status:** resolved by design.
+
+### ISSUE-0.4.0-3 — Canvas blurry on high-DPI displays
+- **Severity:** minor
+- **Symptom:** canvas text looked soft on high-DPI screens.
+- **Root cause:** drawing at CSS pixel size without accounting for
+  devicePixelRatio.
+- **Fix:** `ArcadeRenderer` sizes the backing store by `dpr` (capped at 2) and
+  scales the context transform; re-runs on resize. Crisp text per §20.
+- **Status:** resolved.
+
+---
+
 ## v0.3.0
 
 ### ISSUE-0.3.0-1 — Lesson key-set purity vs. real-word sprinkling

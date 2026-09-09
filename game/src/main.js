@@ -7,13 +7,16 @@ import { KeyAction } from './domain/primitives.js';
 import { perKeyStats } from './domain/scoring.js';
 import { ACHIEVEMENTS, evaluate as evalAchievements } from './domain/achievements.js';
 import { CURRICULUM, flatLessons, isUnlocked } from './domain/curriculum.js';
+import { ArcadeGame } from './domain/arcade.js';
+import { randomSeed } from './domain/primitives.js';
 import { GameSession } from './app/session.js';
 import { AudioEngine } from './app/audio.js';
-import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress } from './app/storage.js';
+import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress, ArcadeScores } from './app/storage.js';
 import { icon } from './ui/icons.js';
 import { TypingSurface } from './ui/typing-surface.js';
 import { renderResults } from './ui/results-view.js';
 import { renderHeatmap } from './ui/heatmap.js';
+import { ArcadeRenderer } from './ui/arcade-view.js';
 
 const app = document.getElementById('app');
 const audio = new AudioEngine();
@@ -51,12 +54,16 @@ function render() {
   if (state.screen === 'results') body = resultsScreen();
   else if (state.screen === 'achievements') body = achievementsScreen();
   else if (state.screen === 'learn') body = learnScreen();
+  else if (state.screen === 'arcade') body = arcadeMenuScreen();
+  else if (state.screen === 'arcade-over') body = arcadeOverScreen();
   else body = homeScreen();
   app.innerHTML = topbar() + body + footer();
   bindChrome();
   if (state.screen === 'home') bindHome();
   if (state.screen === 'results') bindResults();
   if (state.screen === 'learn') bindLearn();
+  if (state.screen === 'arcade') bindArcadeMenu();
+  if (state.screen === 'arcade-over') bindArcadeOver();
 }
 
 function topbar() {
@@ -71,6 +78,7 @@ function topbar() {
     <nav class="nav">
       <button data-nav="home" class="${state.screen === 'home' ? 'active' : ''}">Play</button>
       <button data-nav="learn" class="${state.screen === 'learn' ? 'active' : ''}">Learn</button>
+      <button data-nav="arcade" class="${state.screen === 'arcade' || state.screen === 'arcade-over' ? 'active' : ''}">Arcade</button>
       <button data-nav="achievements" class="${state.screen === 'achievements' ? 'active' : ''}">Achievements</button>
     </nav>
     <div class="topbar-actions">
@@ -218,12 +226,65 @@ function learnScreen() {
   </div>`;
 }
 
+function arcadeMenuScreen() {
+  const best = ArcadeScores.best('falling');
+  const bestLine = best
+    ? `Best: ${best.score} pts · wave ${best.wave} · ${best.wordsCleared} words`
+    : 'No score yet — set the first one.';
+  return `<div class="panel">
+    <h2>Arcade</h2>
+    <p style="color:var(--dim);font-family:var(--mono);font-size:13px;margin-top:-8px">Type the falling words before they reach the floor. Waves get faster. Combo raises your multiplier.</p>
+    <div class="ach-grid" style="margin-top:16px">
+      <div class="ach-card" style="flex-direction:column;align-items:flex-start;gap:10px;cursor:pointer" data-arcade="falling">
+        <div class="ach-title" style="display:flex;align-items:center;gap:10px">${icon('wave', 22)} Falling Words</div>
+        <div class="ach-desc">Clear descending words. Five lives. Endless waves.</div>
+        <div class="lgoal" style="font-family:var(--mono);color:var(--accent)">${bestLine}</div>
+        <button class="btn primary" data-arcade-start="falling">${icon('play', 18)} Play</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindArcadeMenu() {
+  app.querySelectorAll('[data-arcade-start]').forEach((b) => {
+    b.onclick = () => startArcade(b.dataset.arcadeStart);
+  });
+}
+
+function arcadeOverScreen() {
+  const s = state.lastArcade;
+  const pb = state.lastArcadePb;
+  const pbBadge = pb?.beaten ? `<span class="pb-flag">${icon('trophy', 16)} new high score</span>` : '';
+  return `<section class="results">
+    <div class="headline">
+      <div class="big tnum" style="color:var(--accent)">${s.score}<span class="u"> points</span></div>
+      ${pbBadge}
+    </div>
+    <div class="sub-stats">
+      <div class="s"><div class="v tnum">${s.wave}</div><div class="l">wave reached</div></div>
+      <div class="s"><div class="v tnum">${s.wordsCleared}</div><div class="l">words cleared</div></div>
+      <div class="s"><div class="v tnum">${s.bestCombo}</div><div class="l">best combo</div></div>
+      <div class="s"><div class="v tnum">${s.accuracy}%</div><div class="l">accuracy</div></div>
+      <div class="s"><div class="v tnum">${(s.elapsed).toFixed(0)}s</div><div class="l">survived</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" data-act="again">${icon('restart', 18)} Play again</button>
+      <button class="btn ghost" data-act="arcade-menu">${icon('home', 18)} Arcade menu</button>
+    </div>
+  </section>`;
+}
+
+function bindArcadeOver() {
+  app.querySelector('[data-act="again"]').onclick = () => startArcade('falling');
+  app.querySelector('[data-act="arcade-menu"]').onclick = () => { state.screen = 'arcade'; render(); };
+}
+
 function resultsScreen() {
   return renderResults(state.lastResult, state.lastPb, state.lastPerKey, state.lastNewAch, state.lastLessonPass);
 }
 
 function footer() {
-  return `<div class="foot">Cadence v0.3.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
+  return `<div class="foot">Cadence v0.4.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
 }
 
 // ---------------------------------------------------------------- bindings
@@ -493,6 +554,100 @@ function quitToHome() {
   window.removeEventListener('blur', onWindowBlur);
   state.screen = 'home';
   render();
+}
+
+// ---------------------------------------------------------------- arcade
+function startArcade(mode) {
+  state.arcade = new ArcadeGame({ seed: randomSeed(), mode });
+  state.arcadeMode = mode;
+  state.screen = 'arcade-play';
+  renderArcadePlaying();
+}
+
+function renderArcadePlaying() {
+  app.innerHTML =
+    topbar() +
+    `<div class="arcade-stage">
+       <canvas id="arcade-canvas"></canvas>
+       <div class="arcade-hud" id="arcade-hud"></div>
+     </div>
+     <div class="hints"><kbd>Esc</kbd> quit &nbsp; type the falling words</div>`;
+  bindChrome();
+
+  const canvas = app.querySelector('#arcade-canvas');
+  state.arcadeRenderer = new ArcadeRenderer(canvas);
+  audio._ensure();
+
+  document.addEventListener('keydown', onArcadeKey, true);
+  window.addEventListener('resize', onArcadeResize);
+
+  state.arcadeLastTs = performance.now();
+  arcadeLoop();
+}
+
+function onArcadeResize() {
+  if (state.arcadeRenderer) state.arcadeRenderer.resize();
+}
+
+function onArcadeKey(e) {
+  if (state.screen !== 'arcade-play') return;
+  if (e.key === 'Escape') { e.preventDefault(); endArcade(); return; }
+  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    const r = state.arcade.typeChar(e.key);
+    if (r.cleared) audio.play('complete');
+    else if (r.hit) audio.play('correct');
+    else if (r.wrong) audio.play('error');
+  }
+}
+
+function arcadeLoop() {
+  if (state.screen !== 'arcade-play') return;
+  const now = performance.now();
+  let dt = (now - state.arcadeLastTs) / 1000;
+  state.arcadeLastTs = now;
+  dt = Math.min(dt, 0.05); // clamp to avoid huge steps after a stall
+
+  state.arcade.update(dt);
+  const snap = state.arcade.snapshot();
+  state.arcadeRenderer.render(snap);
+  updateArcadeHud(snap);
+
+  if (snap.gameOver) { endArcade(); return; }
+  state.raf = requestAnimationFrame(arcadeLoop);
+}
+
+function updateArcadeHud(snap) {
+  const hud = app.querySelector('#arcade-hud');
+  if (!hud) return;
+  let pips = '';
+  for (let i = 0; i < snap.maxLives; i++) {
+    const filled = i < snap.lives;
+    pips += `<span class="life-pip"><svg width="14" height="14" viewBox="0 0 24 24" fill="${filled ? 'var(--bad)' : 'none'}" stroke="var(--bad)" stroke-width="2"><circle cx="12" cy="12" r="7"/></svg></span>`;
+  }
+  hud.innerHTML = `
+    <div class="stat"><span class="val tnum" style="color:var(--accent)">${snap.score}</span><span class="lab">score</span></div>
+    <div class="stat"><span class="val tnum">W${snap.wave}</span><span class="lab">wave</span></div>
+    <div class="stat"><span class="val tnum" style="color:var(--cool)">${snap.combo}x</span><span class="lab">combo</span></div>
+    <div class="stat"><span class="val" style="display:inline-flex;gap:3px;align-items:center">${pips}</span><span class="lab">lives</span></div>`;
+}
+
+function endArcade() {
+  cancelAnimationFrame(state.raf);
+  document.removeEventListener('keydown', onArcadeKey, true);
+  window.removeEventListener('resize', onArcadeResize);
+  const snap = state.arcade.snapshot();
+  snap.bestCombo = state.arcade.bestCombo;
+  const entry = {
+    score: snap.score, wave: snap.wave, wordsCleared: snap.wordsCleared,
+    bestCombo: snap.bestCombo, accuracy: snap.accuracy, at: new Date().toISOString(),
+  };
+  const pb = ArcadeScores.consider(state.arcadeMode, entry);
+  state.lastArcade = snap;
+  state.lastArcadePb = pb;
+  state.screen = 'arcade-over';
+  render();
+  if (pb.beaten) toast('New high score', 'good');
 }
 
 // ---------------------------------------------------------------- helpers

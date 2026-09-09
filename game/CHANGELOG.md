@@ -4,6 +4,21 @@ All notable changes to Cadence are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-09-09
+### Added
+- Arcade mode "Falling Words": pure deterministic simulation + canvas renderer,
+  wave-based difficulty, combo multiplier, lives, scoring.
+- Arcade tab, menu with high scores, in-game HUD, and game-over screen.
+- Per-mode arcade high-score storage.
+- 7 arcade unit tests (32 total).
+
+### Fixed
+- Clamped the arcade frame delta to prevent floor teleporting on stalls
+  (ISSUE-0.4.0-1).
+- Replaced dot characters with SVG life pips per the no-emoji policy
+  (ISSUE-0.4.0-2).
+- DPI-aware crisp canvas rendering (ISSUE-0.4.0-3).
+
 ## [0.3.0] — 2026-09-09
 ### Added
 - Curriculum: a 6-unit, 15-lesson learn-to-type course with per-lesson WPM +
@@ -63,6 +78,7 @@ adheres to [Semantic Versioning](https://semver.org/).
   core maps 1:1 to the architecture's C#/Avalonia design for a later port
   (ISSUE-0.1.0-1).
 
+[0.4.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.4.0
 [0.3.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.3.0
 [0.2.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.2.0
 [0.1.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.1.0
