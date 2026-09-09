@@ -6,6 +6,53 @@ release list. Versioning follows **SemVer** (MAJOR.MINOR.PATCH).
 
 ---
 
+## v1.0.0 — 1.0 hardening: settings, stats, localization, CI (2026-09-09)
+
+**Status:** Complete and running. 43/43 tests passing. Emoji-lint gate green.
+Production build verified. Live dev preview.
+
+**Theme of this version:** turn the feature-complete game into a 1.0 — full
+settings, a statistics dashboard, a localization framework, data ownership, and
+an automated no-emoji gate wired into CI.
+
+### Delivered
+- `app/i18n.js` — keyed localization framework (no string concatenation), with
+  English + a partial Spanish catalog to prove the pattern, English fallback,
+  RTL direction handling, and a code-free path to add languages. Mirrors §17.2.
+- **Settings** screen: theme (4), language, sound on/off, reduced motion, caret
+  style (bar/block/underline), and data controls. Live-applied, persisted.
+- **Stats** screen: best/avg WPM, avg accuracy, run count, total chars, time
+  typing, a bespoke WPM-trend sparkline, and "keys to practise" from the key
+  model. Mirrors §6 / §14.3.
+- Data ownership (privacy §19 / backup §11.4): export-all to JSON download and
+  clear-all with confirmation, via a `DataOps` store helper.
+- Zen mode now has an explicit **End** control (it never auto-finishes).
+- Caret-style setting applied to the typing surface.
+- `tools/emoji-lint.mjs` — the enforcement the architecture promised (§12.2 /
+  §16.5): scans all source/content/docs and fails the build on any emoji code
+  point (allowing plain technical arrows). Wired as `npm run lint:emoji` and
+  `npm run check`.
+- `.github/workflows/ci.yml` — CI: install, emoji-lint, tests, build.
+- Accessibility: reduced-motion, high-contrast theme, colour + shape/underline
+  double-encoding, visible focus rings, RTL support, semantic labels on SVG
+  charts. Mirrors §17.1.
+- Tests: `test/i18n.test.js` (6 tests) — translation, fallback, unknown key/
+  locale, catalog availability.
+
+### Complete vs. the architecture (v1.0 web build)
+Implemented: typing engine, scoring/analytics, per-key model + adaptive drills,
+timed/words/quote/zen/custom modes, curriculum with progression, achievements,
+keyboard heatmap, arcade (Falling Words), ghost race + replays, history + stats,
+personal bests, four themes, settings, localization framework, data export/wipe,
+sound, accessibility pass, and an enforced no-emoji vector-icon policy.
+
+Intentionally deferred to the native port (need a .NET environment; see
+ISSUE-0.1.0-1): Win32 Raw Input, SQLite persistence, MiniAudio/WASAPI, MSIX/Inno
+packaging + code signing, and multi-keyboard-layout scancode mapping. The domain
+core is written to port unchanged.
+
+---
+
 ## v0.5.0 — Ghost Race & replays (2026-09-09)
 
 **Status:** Complete and running. 37/37 tests passing. Live dev preview.

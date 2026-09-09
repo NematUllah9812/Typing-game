@@ -128,6 +128,9 @@ button { font-family: inherit; }
 @keyframes blink { 50% { opacity: 0.25; } }
 .surface .ghost-caret { background: var(--cool); opacity: .55; width: 2px; animation: none;
   transition: left .12s linear, top .12s linear; }
+.surface .caret.caret-block { width: 0.6em; opacity: .35; }
+.surface .caret.caret-underline { width: 0.6em; height: 2px !important; margin-top: 1.2em; }
+.surface .caret.caret-bar { width: 2px; }
 
 /* ghost banner during a race */
 .ghost-banner { display: inline-flex; align-items: center; gap: 8px; color: var(--cool);
@@ -232,6 +235,17 @@ table.runs td.num { font-family: var(--mono); font-variant-numeric: tabular-nums
 .lesson.cleared { border-color: var(--good); }
 .lesson.cleared .lname { color: var(--good); }
 .lesson.locked { opacity: .5; cursor: not-allowed; }
+
+/* settings rows */
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp5);
+  padding: var(--sp4) 0; border-bottom: 1px solid var(--hair); }
+.setting-row > label { font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dim); }
+
+/* stat key chips */
+.key-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-key { font-family: var(--mono); font-size: 14px; color: var(--bad); background: var(--bg);
+  border: 1px solid var(--bad); border-radius: 4px; padding: 4px 12px; min-width: 32px; text-align: center; }
 
 /* arcade */
 .arcade-stage { flex: 1; display: flex; flex-direction: column; padding: var(--sp4) var(--sp6) 0; min-height: 0; }

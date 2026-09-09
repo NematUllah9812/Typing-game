@@ -25,6 +25,11 @@ export class TypingSurface {
     this.root.classList.toggle('blurred', blurred);
   }
 
+  setCaretStyle(style) {
+    this.caret.classList.remove('caret-bar', 'caret-block', 'caret-underline');
+    this.caret.classList.add(`caret-${style || 'bar'}`);
+  }
+
   /** Build glyph spans once per new text. */
   build(target) {
     const key = target.join('\u0000');

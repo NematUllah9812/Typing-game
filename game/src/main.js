@@ -12,7 +12,8 @@ import { randomSeed } from './domain/primitives.js';
 import { recordReplay, GhostPlayer } from './domain/replay.js';
 import { GameSession } from './app/session.js';
 import { AudioEngine } from './app/audio.js';
-import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress, ArcadeScores, Replays } from './app/storage.js';
+import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress, ArcadeScores, Replays, DataOps } from './app/storage.js';
+import { setLocale, availableLocales, t, currentLocale } from './app/i18n.js';
 import { icon } from './ui/icons.js';
 import { TypingSurface } from './ui/typing-surface.js';
 import { renderResults } from './ui/results-view.js';
@@ -46,6 +47,8 @@ function applySettings() {
   document.documentElement.dataset.theme = state.settings.theme;
   document.documentElement.dataset.motion = state.settings.reducedMotion ? 'reduced' : 'full';
   audio.setEnabled(state.settings.sound);
+  audio.setMasterVolume(state.settings.soundVolume ?? 0.25);
+  setLocale(state.settings.language || 'en');
 }
 
 // ---------------------------------------------------------------- rendering
@@ -57,6 +60,8 @@ function render() {
   else if (state.screen === 'learn') body = learnScreen();
   else if (state.screen === 'arcade') body = arcadeMenuScreen();
   else if (state.screen === 'arcade-over') body = arcadeOverScreen();
+  else if (state.screen === 'stats') body = statsScreen();
+  else if (state.screen === 'settings') body = settingsScreen();
   else body = homeScreen();
   app.innerHTML = topbar() + body + footer();
   bindChrome();
@@ -65,6 +70,7 @@ function render() {
   if (state.screen === 'learn') bindLearn();
   if (state.screen === 'arcade') bindArcadeMenu();
   if (state.screen === 'arcade-over') bindArcadeOver();
+  if (state.screen === 'settings') bindSettings();
 }
 
 function topbar() {
@@ -77,14 +83,15 @@ function topbar() {
       <span class="mode-label">${label}</span>
     </div>
     <nav class="nav">
-      <button data-nav="home" class="${state.screen === 'home' ? 'active' : ''}">Play</button>
-      <button data-nav="learn" class="${state.screen === 'learn' ? 'active' : ''}">Learn</button>
-      <button data-nav="arcade" class="${state.screen === 'arcade' || state.screen === 'arcade-over' ? 'active' : ''}">Arcade</button>
-      <button data-nav="achievements" class="${state.screen === 'achievements' ? 'active' : ''}">Achievements</button>
+      <button data-nav="home" class="${state.screen === 'home' ? 'active' : ''}">${t('nav.play')}</button>
+      <button data-nav="learn" class="${state.screen === 'learn' ? 'active' : ''}">${t('nav.learn')}</button>
+      <button data-nav="arcade" class="${state.screen === 'arcade' || state.screen === 'arcade-over' ? 'active' : ''}">${t('nav.arcade')}</button>
+      <button data-nav="stats" class="${state.screen === 'stats' ? 'active' : ''}">${t('nav.stats')}</button>
+      <button data-nav="achievements" class="${state.screen === 'achievements' ? 'active' : ''}">${t('nav.achievements')}</button>
     </nav>
     <div class="topbar-actions">
       <button class="btn ghost icon-only" data-act="toggle-sound" title="Sound">${icon(state.settings.sound ? 'volume' : 'mute')}</button>
-      <button class="btn ghost icon-only" data-act="cycle-theme" title="Theme">${icon('gear')}</button>
+      <button class="btn ghost icon-only" data-nav="settings" title="Settings">${icon('gear')}</button>
     </div>
   </header>`;
 }
@@ -283,28 +290,158 @@ function bindArcadeOver() {
   app.querySelector('[data-act="arcade-menu"]').onclick = () => { state.screen = 'arcade'; render(); };
 }
 
+function statsScreen() {
+  const runs = Runs.all();
+  if (!runs.length) {
+    return `<div class="panel"><h2>${t('stats.title')}</h2>
+      <p style="color:var(--dim);font-family:var(--mono);font-size:13px">No runs yet. Complete a run to build your statistics.</p></div>`;
+  }
+  const typing = runs.filter((r) => ['timed', 'words', 'quote', 'zen', 'custom', 'lesson'].includes(r.modeId));
+  const avg = (arr, f) => arr.length ? Math.round((arr.reduce((a, b) => a + f(b), 0) / arr.length) * 10) / 10 : 0;
+  const best = Math.max(...typing.map((r) => r.netWpm), 0);
+  const avgWpm = avg(typing, (r) => r.netWpm);
+  const avgAcc = avg(typing, (r) => r.accuracy);
+  const totalChars = typing.reduce((a, b) => a + (b.charsTyped || 0), 0);
+  const totalTime = typing.reduce((a, b) => a + (b.durationMs || 0), 0) / 60000;
+
+  // wpm trend over last 20 runs (bespoke sparkline)
+  const last = typing.slice(-20).map((r) => r.netWpm);
+  const spark = sparkline(last);
+
+  // weakest keys from the model
+  const weak = KeyModelStore.weakestKeys(8);
+  const weakChips = weak.length
+    ? weak.map((k) => `<span class="chip-key">${k === ' ' ? 'space' : k}</span>`).join('')
+    : '<span style="color:var(--dim);font-family:var(--mono);font-size:13px">not enough data yet</span>';
+
+  return `<div class="panel">
+    <h2>${t('stats.title')}</h2>
+    <div class="sub-stats" style="margin-bottom:24px">
+      <div class="s"><div class="v tnum">${best}</div><div class="l">best wpm</div></div>
+      <div class="s"><div class="v tnum">${avgWpm}</div><div class="l">avg wpm</div></div>
+      <div class="s"><div class="v tnum">${avgAcc}%</div><div class="l">avg accuracy</div></div>
+      <div class="s"><div class="v tnum">${typing.length}</div><div class="l">runs</div></div>
+      <div class="s"><div class="v tnum">${totalChars.toLocaleString()}</div><div class="l">chars typed</div></div>
+      <div class="s"><div class="v tnum">${totalTime.toFixed(0)}m</div><div class="l">time typing</div></div>
+    </div>
+    <div class="chart-card"><h3>WPM trend (last ${last.length})</h3>${spark}</div>
+    <div class="chart-card"><h3>Keys to practise</h3><div class="key-chips">${weakChips}</div></div>
+  </div>`;
+}
+
+function sparkline(values) {
+  if (values.length < 2) return `<div style="color:var(--dim);font-family:var(--mono);font-size:13px">Need more runs.</div>`;
+  const W = 860, H = 120, pad = 10;
+  const max = Math.max(...values), min = Math.min(...values);
+  const range = max - min || 1;
+  const x = (i) => pad + (i / (values.length - 1)) * (W - 2 * pad);
+  const y = (v) => pad + (1 - (v - min) / range) * (H - 2 * pad);
+  const line = values.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const dots = values.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="WPM trend">
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${dots}</svg>`;
+}
+
+function settingsScreen() {
+  const s = state.settings;
+  const themes = [['graphite', 'Graphite'], ['paper', 'Paper'], ['nord', 'Nord'], ['contrast', 'High contrast']];
+  const carets = [['bar', 'Bar'], ['block', 'Block'], ['underline', 'Underline']];
+  const langs = availableLocales();
+  return `<div class="panel">
+    <h2>${t('settings.title')}</h2>
+
+    <div class="setting-row">
+      <label>${t('settings.theme')}</label>
+      <div class="seg" data-set="theme">${themes.map(([v, l]) => `<button class="${s.theme === v ? 'active' : ''}" data-val="${v}">${l}</button>`).join('')}</div>
+    </div>
+
+    <div class="setting-row">
+      <label>${t('settings.language')}</label>
+      <div class="seg" data-set="language">${langs.map((l) => `<button class="${s.language === l ? 'active' : ''}" data-val="${l}">${l.toUpperCase()}</button>`).join('')}</div>
+    </div>
+
+    <div class="setting-row">
+      <label>${t('settings.sound')}</label>
+      <div class="seg" data-set="sound">
+        <button class="${s.sound ? 'active' : ''}" data-val="on">${t('common.on')}</button>
+        <button class="${!s.sound ? 'active' : ''}" data-val="off">${t('common.off')}</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <label>${t('settings.motion')}</label>
+      <div class="seg" data-set="reducedMotion">
+        <button class="${s.reducedMotion ? 'active' : ''}" data-val="on">${t('common.on')}</button>
+        <button class="${!s.reducedMotion ? 'active' : ''}" data-val="off">${t('common.off')}</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <label>${t('settings.caret')}</label>
+      <div class="seg" data-set="caret">${carets.map(([v, l]) => `<button class="${s.caret === v ? 'active' : ''}" data-val="${v}">${l}</button>`).join('')}</div>
+    </div>
+
+    <div class="setting-row">
+      <label>${t('settings.data')}</label>
+      <div style="display:flex;gap:8px">
+        <button class="btn" data-act="export">${icon('chart', 16)} ${t('settings.exportData')}</button>
+        <button class="btn ghost" data-act="clear">${icon('close', 16)} ${t('settings.clearData')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindSettings() {
+  app.querySelectorAll('[data-set]').forEach((seg) => {
+    const key = seg.dataset.set;
+    seg.querySelectorAll('button').forEach((b) => {
+      b.onclick = () => {
+        let val = b.dataset.val;
+        if (key === 'sound' || key === 'reducedMotion') val = val === 'on';
+        state.settings = Settings.set({ [key]: val });
+        applySettings();
+        render();
+      };
+    });
+  });
+  const exp = app.querySelector('[data-act="export"]');
+  if (exp) exp.onclick = () => {
+    const blob = new Blob([JSON.stringify(DataOps.exportAll(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cadence-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Data exported', 'good');
+  };
+  const clr = app.querySelector('[data-act="clear"]');
+  if (clr) clr.onclick = () => {
+    if (confirm('Clear all runs, bests, achievements and progress? This cannot be undone.')) {
+      DataOps.clearAll();
+      state.settings = Settings.get();
+      applySettings();
+      toast('All data cleared');
+      render();
+    }
+  };
+}
+
 function resultsScreen() {
   return renderResults(state.lastResult, state.lastPb, state.lastPerKey, state.lastNewAch, state.lastLessonPass);
 }
 
 function footer() {
-  return `<div class="foot">Cadence v0.5.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
+  return `<div class="foot">Cadence v1.0.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
 }
 
 // ---------------------------------------------------------------- bindings
 function bindChrome() {
-  app.querySelector('[data-act="toggle-sound"]').onclick = () => {
+  const snd = app.querySelector('[data-act="toggle-sound"]');
+  if (snd) snd.onclick = () => {
     state.settings = Settings.set({ sound: !state.settings.sound });
     applySettings();
     render();
-  };
-  app.querySelector('[data-act="cycle-theme"]').onclick = () => {
-    const order = ['graphite', 'paper', 'nord', 'contrast'];
-    const next = order[(order.indexOf(state.settings.theme) + 1) % order.length];
-    state.settings = Settings.set({ theme: next });
-    applySettings();
-    render();
-    toast(`Theme: ${next}`);
   };
   app.querySelectorAll('[data-nav]').forEach((b) => {
     b.onclick = () => {
@@ -441,13 +578,19 @@ function renderPlaying(plan) {
        <div id="surface"></div>
      </div>
      <div class="hud" id="hud"></div>
-     <div class="hints"><kbd>Esc</kbd> quit &nbsp; <kbd>Tab</kbd> then <kbd>Enter</kbd> restart</div>`;
+     <div class="hints">
+       <kbd>Esc</kbd> quit &nbsp; <kbd>Tab</kbd> then <kbd>Enter</kbd> restart
+       ${state.modeId === 'zen' ? ' &nbsp; <button class="btn" data-act="end-zen" style="padding:4px 12px">' + icon('check', 14) + ' End</button>' : ''}
+     </div>`;
   bindChrome();
 
   const surfaceEl = app.querySelector('#surface');
   state.surface = new TypingSurface(surfaceEl);
+  state.surface.setCaretStyle(state.settings.caret);
   state.surface.render(state.session.snapshot());
   if (state.ghost) state.surface.setGhost(0);
+  const endBtn = app.querySelector('[data-act="end-zen"]');
+  if (endBtn) endBtn.onclick = () => state.session.finish(performance.now());
 
   document.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('blur', onWindowBlur);

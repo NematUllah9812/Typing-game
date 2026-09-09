@@ -4,6 +4,28 @@ All notable changes to Cadence are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-09-09
+### Added
+- Settings screen: theme, language, sound, reduced motion, caret style, and data
+  controls (export all / clear all).
+- Statistics screen: best/avg WPM, accuracy, totals, a WPM-trend sparkline, and
+  "keys to practise" from the key model.
+- Localization framework (keyed strings, English + partial Spanish, fallback,
+  RTL handling).
+- Zen mode explicit End control; caret-style applied to the typing surface.
+- `tools/emoji-lint.mjs` no-emoji gate + `npm run check`; GitHub Actions CI
+  (emoji-lint + tests + build).
+- 6 i18n unit tests (43 total).
+
+### Fixed
+- Gear button now opens Settings instead of cycling themes (ISSUE-1.0.0-1).
+- i18n tests run headless via a document shim (ISSUE-1.0.0-2).
+- Caret-style setting now takes effect (ISSUE-1.0.0-3).
+
+### Changed
+- The no-emoji vector-icon policy is now enforced automatically in CI, not by
+  convention (ISSUE-1.0.0-4).
+
 ## [0.5.0] — 2026-09-09
 ### Added
 - Replay recording (seed + event timeline) and a GhostPlayer that reconstructs
@@ -94,6 +116,7 @@ adheres to [Semantic Versioning](https://semver.org/).
   core maps 1:1 to the architecture's C#/Avalonia design for a later port
   (ISSUE-0.1.0-1).
 
+[1.0.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v1.0.0
 [0.5.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.5.0
 [0.4.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.4.0
 [0.3.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.3.0

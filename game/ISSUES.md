@@ -9,6 +9,52 @@ Severity: **blocker** (stops build/run) · **bug** (wrong behaviour) ·
 
 ---
 
+## v1.0.0
+
+### ISSUE-1.0.0-1 — Gear button did double duty (theme cycle vs. settings)
+- **Severity:** minor
+- **Symptom:** the top-bar gear cycled themes in earlier versions; adding a full
+  Settings screen made that surprising and hid the new screen.
+- **Root cause:** overloaded control.
+- **Fix:** the gear now opens Settings (a `data-nav` target); theme selection
+  lives in Settings as a proper segmented control. Removed the old
+  `cycle-theme` handler; guarded `toggle-sound`/`toggle` handlers with null
+  checks since the gameplay top bar omits some of them.
+- **Status:** resolved.
+
+### ISSUE-1.0.0-2 — Locale switch needed a DOM document in unit tests
+- **Severity:** bug (test env)
+- **Symptom:** `setLocale()` sets `document.documentElement.lang/dir`; under
+  `node --test` there is no `document`, so i18n tests threw.
+- **Root cause:** the framework touches the DOM for direction/lang, which is
+  unavailable in Node.
+- **Fix:** added a minimal `globalThis.document` shim in the i18n test; the
+  module itself remains DOM-touching only in `setLocale`, which is acceptable for
+  a UI concern. (In the native port this maps to setting culture + flow
+  direction.)
+- **Status:** resolved.
+
+### ISSUE-1.0.0-3 — Caret-style setting had no effect
+- **Severity:** bug
+- **Symptom:** choosing block/underline caret in Settings did nothing.
+- **Root cause:** the surface only ever drew a bar caret; no style hook.
+- **Fix:** added `setCaretStyle()` on `TypingSurface` + CSS variants
+  (`caret-bar/block/underline`); `renderPlaying()` applies the saved style.
+- **Status:** resolved.
+
+### ISSUE-1.0.0-4 — Making the no-emoji rule real, not aspirational
+- **Severity:** note (policy hardening)
+- **Symptom:** the rule was verified manually each version; a 1.0 needs it
+  automated so a future contributor can't slip an emoji in.
+- **Root cause:** no committed enforcement.
+- **Fix:** added `tools/emoji-lint.mjs` (fails on emoji code points, allows plain
+  technical arrows), an `npm run check` script, and a GitHub Actions workflow
+  that runs emoji-lint + tests + build on every push. This is the §12.2/§16.5
+  gate from the architecture, now executable.
+- **Status:** resolved.
+
+---
+
 ## v0.5.0
 
 ### ISSUE-0.5.0-1 — Start button passed the click Event as the run seed

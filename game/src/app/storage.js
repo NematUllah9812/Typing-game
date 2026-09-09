@@ -78,6 +78,8 @@ export const Settings = {
     sound: true,
     caret: 'bar',
     reducedMotion: false,
+    language: 'en',
+    soundVolume: 0.25,
   },
   get() {
     return { ...this.defaults, ...read(K.settings, {}) };
@@ -148,6 +150,21 @@ export const CurriculumProgress = {
   },
   isCleared(lessonId) {
     return !!read(K.curriculum, { cleared: {} }).cleared[lessonId];
+  },
+};
+
+/** Whole-profile export / wipe (privacy control §19; backup §11.4). */
+export const DataOps = {
+  exportAll() {
+    const dump = {};
+    for (const key of Object.values(K)) {
+      const raw = localStorage.getItem(key);
+      if (raw != null) dump[key] = JSON.parse(raw);
+    }
+    return { app: 'cadence', version: 1, exportedUtc: new Date().toISOString(), data: dump };
+  },
+  clearAll() {
+    for (const key of Object.values(K)) localStorage.removeItem(key);
   },
 };
 
