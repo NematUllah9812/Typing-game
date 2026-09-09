@@ -1,0 +1,16 @@
+{
+  "name": "cadence-typing-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cadence — a typing trainer and arcade. Web build of the architecture's portable domain core.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
