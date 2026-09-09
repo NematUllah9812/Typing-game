@@ -9,6 +9,46 @@ Severity: **blocker** (stops build/run) · **bug** (wrong behaviour) ·
 
 ---
 
+## v0.5.0
+
+### ISSUE-0.5.0-1 — Start button passed the click Event as the run seed
+- **Severity:** bug (latent since v0.1, found while adding ghost racing)
+- **Symptom:** `onclick = startRun` wired the DOM click handler directly, so the
+  browser called `startRun(event)`. `event` coerced through `?? randomSeed()`
+  logic to a truthy object, and in some paths to `0`, which meant "New run"
+  could reuse the same seed / text instead of a fresh random one.
+- **Root cause:** passing a function reference as an event handler leaks the
+  event object into the first parameter.
+- **Fix:** wrapped as `onclick = () => startRun()` (and `() => startLesson(...)`),
+  so no seed is passed and a fresh random seed is generated. Ghost race passes an
+  explicit seed on purpose.
+- **Status:** resolved.
+- **Lesson:** never bind a multi-arg domain function directly as an event handler.
+
+### ISSUE-0.5.0-2 — Ghost timeline had no stored cursor index
+- **Severity:** bug
+- **Symptom:** replays store `targetIndex` per sample, not the resulting cursor,
+  so naively reading it produced a jittery / non-monotonic ghost.
+- **Root cause:** the engine's sample records the index acted on, and backspaces
+  move the cursor backward, so raw indices aren't monotonic.
+- **Fix:** `buildCursorTimeline()` reconstructs cursor position by rule (type/
+  whitespace advance to `max(cursor, i+1)`, backspace decrements), producing a
+  clean monotonic-forward timeline that still reflects corrections. Verified by
+  the monotonic-advancement and backspace replay tests.
+- **Status:** resolved.
+
+### ISSUE-0.5.0-3 — Ghost seed must match the live run's text
+- **Severity:** bug
+- **Symptom:** a ghost recorded on one random text would visually race over a
+  *different* freshly-generated text, making the race meaningless.
+- **Root cause:** generated modes pick a new seed unless one is supplied.
+- **Fix:** `startRun()` uses the ghost replay's `seed` as the effective seed, so
+  the deterministic generator reproduces the identical passage. This is the same
+  determinism guarantee the architecture relies on for verification (§18).
+- **Status:** resolved.
+
+---
+
 ## v0.4.0
 
 ### ISSUE-0.4.0-1 — Frame-time spikes teleported words through the floor

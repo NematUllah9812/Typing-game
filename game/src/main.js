@@ -9,9 +9,10 @@ import { ACHIEVEMENTS, evaluate as evalAchievements } from './domain/achievement
 import { CURRICULUM, flatLessons, isUnlocked } from './domain/curriculum.js';
 import { ArcadeGame } from './domain/arcade.js';
 import { randomSeed } from './domain/primitives.js';
+import { recordReplay, GhostPlayer } from './domain/replay.js';
 import { GameSession } from './app/session.js';
 import { AudioEngine } from './app/audio.js';
-import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress, ArcadeScores } from './app/storage.js';
+import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress, ArcadeScores, Replays } from './app/storage.js';
 import { icon } from './ui/icons.js';
 import { TypingSurface } from './ui/typing-surface.js';
 import { renderResults } from './ui/results-view.js';
@@ -127,7 +128,10 @@ function homeScreen() {
     </div>
     <div class="group" style="margin-left:auto">
       <label>&nbsp;</label>
-      <button class="btn primary" data-act="start">${icon('play', 18)} Start</button>
+      <div style="display:flex;gap:8px">
+        ${ghostAvailable() ? `<button class="btn" data-act="ghost">${icon('ghost', 18)} Race ghost</button>` : ''}
+        <button class="btn primary" data-act="start">${icon('play', 18)} Start</button>
+      </div>
     </div>
   </section>
   ${customPanel}
@@ -284,7 +288,7 @@ function resultsScreen() {
 }
 
 function footer() {
-  return `<div class="foot">Cadence v0.4.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
+  return `<div class="foot">Cadence v0.5.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
 }
 
 // ---------------------------------------------------------------- bindings
@@ -330,7 +334,13 @@ function bindHome() {
   }
   const ta = app.querySelector('#custom-text');
   if (ta) ta.oninput = () => { state.config.customText = ta.value; };
-  app.querySelector('[data-act="start"]').onclick = startRun;
+  app.querySelector('[data-act="start"]').onclick = () => startRun();
+  const ghostBtn = app.querySelector('[data-act="ghost"]');
+  if (ghostBtn) ghostBtn.onclick = startGhostRace;
+}
+
+function ghostAvailable() {
+  return ['timed', 'words', 'quote'].includes(state.modeId) && !!Replays.bestFor(state.modeId, currentMeta());
 }
 
 function bindLearn() {
@@ -381,10 +391,12 @@ function bindResults() {
 }
 
 // ---------------------------------------------------------------- gameplay
-function startRun(seed) {
+function startRun(seed, ghostReplay = null) {
   const mode = Modes[state.modeId];
+  // A ghost race must reuse the ghost's seed so the text matches exactly.
+  const effectiveSeed = ghostReplay ? ghostReplay.seed : seed;
   const opts = {
-    seed,
+    seed: effectiveSeed,
     seconds: state.config.seconds,
     count: state.config.count,
     length: state.config.length,
@@ -394,16 +406,40 @@ function startRun(seed) {
   const plan = mode.createPlan(opts);
   state.session = new GameSession(plan);
   state.currentLesson = null;
+  state.ghost = ghostReplay ? new GhostPlayer(ghostReplay) : null;
+  state.ghostReplay = ghostReplay;
   state.streak = 0;
   state.bestStreak = 0;
   state.screen = 'playing';
   renderPlaying(plan);
 }
 
+function startGhostRace() {
+  const replay = Replays.bestFor(state.modeId, currentMeta());
+  if (!replay) {
+    toast('No ghost yet — finish a run first');
+    return;
+  }
+  startRun(replay.seed, replay);
+}
+
+function currentMeta() {
+  if (state.modeId === 'timed') return { seconds: state.config.seconds };
+  if (state.modeId === 'words') return { count: state.config.count };
+  if (state.modeId === 'quote') return { length: state.config.length };
+  return {};
+}
+
 function renderPlaying(plan) {
+  const ghostBanner = state.ghost
+    ? `<span class="ghost-banner">${icon('ghost', 14)} racing your ghost · ${state.ghostReplay.netWpm} wpm</span>`
+    : '';
   app.innerHTML =
     topbar() +
-    `<div class="stage"><div id="surface"></div></div>
+    `<div class="stage">
+       <div style="text-align:center;min-height:20px">${ghostBanner}</div>
+       <div id="surface"></div>
+     </div>
      <div class="hud" id="hud"></div>
      <div class="hints"><kbd>Esc</kbd> quit &nbsp; <kbd>Tab</kbd> then <kbd>Enter</kbd> restart</div>`;
   bindChrome();
@@ -411,6 +447,7 @@ function renderPlaying(plan) {
   const surfaceEl = app.querySelector('#surface');
   state.surface = new TypingSurface(surfaceEl);
   state.surface.render(state.session.snapshot());
+  if (state.ghost) state.surface.setGhost(0);
 
   document.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('blur', onWindowBlur);
@@ -470,6 +507,11 @@ function startLoop() {
     const now = performance.now();
     state.session.tick(now);
     if (state.session.plan.limitMs) updateHud();
+    // animate ghost only once the run clock has started
+    if (state.ghost && state.session.started) {
+      const elapsed = state.session.elapsedMs(now);
+      state.surface.setGhost(state.ghost.cursorAt(elapsed));
+    }
     state.raf = requestAnimationFrame(step);
   };
   state.raf = requestAnimationFrame(step);
@@ -518,6 +560,26 @@ function onFinish(result) {
   const perKey = perKeyStats(state.session.engine.samples);
   KeyModelStore.ingest(perKey);
 
+  // record a replay for ghost racing (best-per-mode). Skip zen/custom (no seed).
+  if (['timed', 'words', 'quote'].includes(result.modeId) && result.charsTyped > 5) {
+    const replay = recordReplay({
+      modeId: result.modeId,
+      seed: result.seed,
+      meta: result.meta,
+      samples: state.session.engine.samples,
+      durationMs: result.durationMs,
+      netWpm: result.netWpm,
+      text: state.session.plan.text,
+    });
+    Replays.consider(replay);
+  }
+
+  // ghost race outcome
+  state.lastGhostWin = null;
+  if (state.ghostReplay) {
+    state.lastGhostWin = result.netWpm >= state.ghostReplay.netWpm;
+  }
+
   // achievements
   const ctx = {
     run: result,
@@ -542,9 +604,14 @@ function onFinish(result) {
   state.lastPerKey = perKey;
   state.lastNewAch = newly;
   state.screen = 'results';
+  const wasGhostRace = !!state.ghostReplay;
+  const ghostWin = state.lastGhostWin;
+  state.ghost = null;
+  state.ghostReplay = null;
   render();
   if (pb.beaten) toast('New personal best', 'good');
   if (state.lastLessonPass?.passed) toast('Lesson cleared', 'good');
+  if (wasGhostRace) toast(ghostWin ? 'You beat your ghost' : 'Ghost won this time', ghostWin ? 'good' : '');
   newly.forEach((a, i) => setTimeout(() => toast(`Unlocked: ${a.title}`, 'good'), 300 * (i + 1)));
 }
 

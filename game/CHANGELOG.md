@@ -4,6 +4,22 @@ All notable changes to Cadence are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-09-09
+### Added
+- Replay recording (seed + event timeline) and a GhostPlayer that reconstructs
+  a cursor-over-time timeline.
+- Ghost Race: race a translucent caret of your best run over the identical
+  (seed-reproduced) text; win/lose feedback.
+- Ghost caret in the typing surface; "Race ghost" button on the home screen.
+- Replay storage (best per mode).
+- 5 replay/ghost unit tests (37 total).
+
+### Fixed
+- Start/New buttons no longer leak the click event into the seed argument
+  (ISSUE-0.5.0-1, latent since v0.1).
+- Monotonic ghost timeline reconstruction (ISSUE-0.5.0-2).
+- Ghost races reuse the ghost's seed so text matches exactly (ISSUE-0.5.0-3).
+
 ## [0.4.0] — 2026-09-09
 ### Added
 - Arcade mode "Falling Words": pure deterministic simulation + canvas renderer,
@@ -78,6 +94,7 @@ adheres to [Semantic Versioning](https://semver.org/).
   core maps 1:1 to the architecture's C#/Avalonia design for a later port
   (ISSUE-0.1.0-1).
 
+[0.5.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.5.0
 [0.4.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.4.0
 [0.3.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.3.0
 [0.2.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.2.0

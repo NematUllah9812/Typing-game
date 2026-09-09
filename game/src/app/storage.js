@@ -11,6 +11,7 @@ const K = {
   achievements: `${NS}:achievements`,
   curriculum: `${NS}:curriculum`,
   arcade: `${NS}:arcade`,
+  replays: `${NS}:replays`,
 };
 
 function read(key, fallback) {
@@ -167,6 +168,32 @@ export const ArcadeScores = {
       write(K.arcade, all);
     }
     return { beaten, previous: prev || null };
+  },
+};
+
+/** IReplayStore — best replay per mode key (for ghost racing your PB). §18 */
+export const Replays = {
+  key(modeId, meta) {
+    const tag = meta?.seconds ?? meta?.count ?? meta?.length ?? meta?.source ?? 'x';
+    return `${modeId}:${tag}`;
+  },
+  bestFor(modeId, meta) {
+    const all = read(K.replays, {});
+    return all[this.key(modeId, meta)] || null;
+  },
+  consider(replay) {
+    const all = read(K.replays, {});
+    const key = this.key(replay.modeId, replay.meta);
+    const prev = all[key];
+    if (!prev || replay.netWpm > prev.netWpm) {
+      all[key] = replay;
+      write(K.replays, all);
+      return true;
+    }
+    return false;
+  },
+  all() {
+    return read(K.replays, {});
   },
 };
 

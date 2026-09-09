@@ -126,6 +126,13 @@ button { font-family: inherit; }
 }
 :root[data-motion="reduced"] .surface .caret { transition: none; animation: none; }
 @keyframes blink { 50% { opacity: 0.25; } }
+.surface .ghost-caret { background: var(--cool); opacity: .55; width: 2px; animation: none;
+  transition: left .12s linear, top .12s linear; }
+
+/* ghost banner during a race */
+.ghost-banner { display: inline-flex; align-items: center; gap: 8px; color: var(--cool);
+  font-family: var(--mono); font-size: 12px; border: 1px solid var(--cool); border-radius: 999px;
+  padding: 4px 12px; margin-left: 12px; }
 
 /* focus hint overlay when not started */
 .focus-hint {

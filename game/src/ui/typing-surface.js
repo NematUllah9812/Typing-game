@@ -10,10 +10,13 @@ export class TypingSurface {
     this.glyphLayer = document.createElement('div');
     this.caret = document.createElement('div');
     this.caret.className = 'caret';
+    this.ghostCaret = document.createElement('div');
+    this.ghostCaret.className = 'caret ghost-caret';
+    this.ghostCaret.style.display = 'none';
     this.hint = document.createElement('div');
     this.hint.className = 'focus-hint';
     this.hint.textContent = 'click here and start typing';
-    this.root.append(this.glyphLayer, this.caret, this.hint);
+    this.root.append(this.glyphLayer, this.ghostCaret, this.caret, this.hint);
     this._spans = [];
     this._built = '';
   }
@@ -72,18 +75,32 @@ export class TypingSurface {
   }
 
   _moveCaret(cursor) {
-    const target = this._spans[cursor];
+    this._place(this.caret, cursor);
+  }
+
+  /** Position the ghost caret at a given index (or hide it). */
+  setGhost(index) {
+    if (index == null) {
+      this.ghostCaret.style.display = 'none';
+      return;
+    }
+    this.ghostCaret.style.display = 'block';
+    this._place(this.ghostCaret, index);
+  }
+
+  _place(el, cursor) {
     const rootRect = this.root.getBoundingClientRect();
+    const target = this._spans[cursor];
     if (target) {
       const r = target.getBoundingClientRect();
-      this.caret.style.left = `${r.left - rootRect.left}px`;
-      this.caret.style.top = `${r.top - rootRect.top + 2}px`;
-      this.caret.style.height = `${r.height - 4}px`;
+      el.style.left = `${r.left - rootRect.left}px`;
+      el.style.top = `${r.top - rootRect.top + 2}px`;
+      el.style.height = `${r.height - 4}px`;
     } else if (this._spans.length) {
       const last = this._spans[this._spans.length - 1].getBoundingClientRect();
-      this.caret.style.left = `${last.right - rootRect.left}px`;
-      this.caret.style.top = `${last.top - rootRect.top + 2}px`;
-      this.caret.style.height = `${last.height - 4}px`;
+      el.style.left = `${last.right - rootRect.left}px`;
+      el.style.top = `${last.top - rootRect.top + 2}px`;
+      el.style.height = `${last.height - 4}px`;
     }
   }
 }

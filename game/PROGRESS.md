@@ -6,6 +6,33 @@ release list. Versioning follows **SemVer** (MAJOR.MINOR.PATCH).
 
 ---
 
+## v0.5.0 — Ghost Race & replays (2026-09-09)
+
+**Status:** Complete and running. 37/37 tests passing. Live dev preview.
+
+**Theme of this version:** realise the payoff of the deterministic engine —
+record runs and race a translucent ghost of your best.
+
+### Delivered
+- `replay.js` — `recordReplay()` (compact seed + event timeline) and
+  `GhostPlayer` (reconstructs a monotonic cursor-over-time timeline and answers
+  "where was the ghost at elapsed ms?"). Mirrors §18.
+- `Replays` storage port — best replay per mode key, for ghost racing your PB.
+- Ghost caret in `TypingSurface` (second, cool-coloured caret) with generalised
+  `_place()` positioning and a `setGhost()` API.
+- Ghost race flow: a "Race ghost" button on the home screen (shown when a ghost
+  exists for the current mode) reuses the ghost's seed so the text matches
+  exactly; the ghost caret animates during the run; a win/lose toast on finish.
+- Replays are recorded automatically after eligible runs (timed/words/quote).
+- Tests: `test/replay.test.js` (5 tests) — event count, monotonic advancement,
+  final-cursor arrival, start position, backspace handling.
+
+### Notes
+- With this version the roadmap's arcade + ghost goals are complete; v1.0 is the
+  hardening/accessibility/localization/packaging pass.
+
+---
+
 ## v0.4.0 — Arcade: Falling Words (2026-09-09)
 
 **Status:** Complete and running. 32/32 tests passing. Live dev preview.
