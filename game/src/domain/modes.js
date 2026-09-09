@@ -2,6 +2,8 @@
 // Each mode supplies a RunPlan (target text + rules) and a finish decision.
 
 import { generateWords, generateQuote } from './generator.js';
+import { generateLessonText } from './curriculum.js';
+import { words as wordPool } from './content.js';
 import { randomSeed } from './primitives.js';
 
 /**
@@ -105,6 +107,26 @@ export const Modes = {
     },
   },
 
+  lesson: {
+    id: 'lesson',
+    label: 'Lesson',
+    options: {},
+    createPlan(opts = {}) {
+      const lesson = opts.lesson;
+      const seed = opts.seed ?? randomSeed();
+      const text = generateLessonText(lesson, seed, wordPool(opts.lang));
+      return {
+        text,
+        rules: { allowBackspace: true, stopOnError: false },
+        seed,
+        modeId: 'lesson',
+        meta: { label: `lesson · ${lesson.name}`, lessonId: lesson.id, goal: lesson.goal },
+        limitMs: null,
+        isFinished: (ctx) => ctx.textComplete,
+      };
+    },
+  },
+
   custom: {
     id: 'custom',
     label: 'Custom Text',
@@ -124,6 +146,11 @@ export const Modes = {
   },
 };
 
+// Internal modes are not shown in the home mode-picker (reached via other UI).
+const INTERNAL_MODES = new Set(['lesson']);
+
 export function listModes() {
-  return Object.values(Modes).map((m) => ({ id: m.id, label: m.label, options: m.options }));
+  return Object.values(Modes)
+    .filter((m) => !INTERNAL_MODES.has(m.id))
+    .map((m) => ({ id: m.id, label: m.label, options: m.options }));
 }

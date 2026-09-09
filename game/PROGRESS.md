@@ -6,6 +6,36 @@ release list. Versioning follows **SemVer** (MAJOR.MINOR.PATCH).
 
 ---
 
+## v0.3.0 — Curriculum & lessons tree (2026-09-09)
+
+**Status:** Complete and running. 25/25 tests passing. Live dev preview.
+
+**Theme of this version:** turn Cadence into a real learn-to-type course, not
+just a test — structured lessons with progression gates.
+
+### Delivered
+- `curriculum.js` — a 6-unit course (Home Row → Top → Bottom → Numbers →
+  Punctuation/Capitals → Fluency) with 15 lessons, each with a WPM+accuracy
+  goal. Deterministic per-lesson text generation from key sets (focused but
+  readable; sprinkles tiny real words for rhythm). Mirrors §7.1.
+- `flatLessons()` + `isUnlocked()` — linear unlock: the next lesson opens when
+  the previous is cleared.
+- New internal `lesson` mode in `modes.js` (excluded from the home mode-picker).
+- **Learn** nav tab with a full lessons tree: cleared / open / locked states,
+  per-lesson goal or personal best shown, unit grouping.
+- Results screen now shows a lesson pass/fail banner and, on pass, records the
+  clear via `CurriculumProgress` and unlocks the next lesson. Retry/New/Home are
+  lesson-aware.
+- Tests: `test/curriculum.test.js` (6 tests) — unlock logic, key-set purity,
+  determinism, digit lessons, non-empty output.
+
+### Not yet built (carried forward)
+- Arcade modes: Falling Words, Wave Survival — §7.2 (v0.4)
+- Ghost Race + replays — §7.2 / §18 (v0.5)
+- Localization framework, accessibility polish, packaging notes — §17 / §22 (v1.0)
+
+---
+
 ## v0.2.0 — Achievements, heatmap & custom text (2026-09-09)
 
 **Status:** Complete and running. 19/19 tests passing. Live dev preview.

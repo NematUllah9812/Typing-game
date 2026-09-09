@@ -4,10 +4,16 @@
 import { icon } from './icons.js';
 import { renderHeatmap } from './heatmap.js';
 
-export function renderResults(result, pbInfo, perKey = [], newAchievements = []) {
+export function renderResults(result, pbInfo, perKey = [], newAchievements = [], lessonPass = null) {
   const chart = perWordChart(result.perWord);
   const pbBadge = pbInfo?.beaten
     ? `<span class="pb-flag">${icon('trophy', 16)} new personal best</span>`
+    : '';
+
+  const lessonBanner = lessonPass
+    ? (lessonPass.passed
+        ? `<div class="lesson-banner pass">${icon('check', 18)} Lesson cleared — next lesson unlocked</div>`
+        : `<div class="lesson-banner fail">${icon('info', 18)} Goal not met: need ${lessonPass.goal.wpm} wpm and ${lessonPass.goal.acc}% accuracy. Try again.</div>`)
     : '';
 
   const heatmap = perKey.length
@@ -50,6 +56,7 @@ export function renderResults(result, pbInfo, perKey = [], newAchievements = [])
       <div class="s"><div class="v tnum">${(result.durationMs / 1000).toFixed(1)}s</div><div class="l">time</div></div>
     </div>
 
+    ${lessonBanner}
     ${achievements}
 
     <div class="chart-card">

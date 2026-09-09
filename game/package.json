@@ -1,6 +1,6 @@
 {
   "name": "cadence-typing-game",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Cadence — a typing trainer and arcade. Web build of the architecture's portable domain core.",

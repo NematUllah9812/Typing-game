@@ -6,9 +6,10 @@ import { Modes, listModes } from './domain/modes.js';
 import { KeyAction } from './domain/primitives.js';
 import { perKeyStats } from './domain/scoring.js';
 import { ACHIEVEMENTS, evaluate as evalAchievements } from './domain/achievements.js';
+import { CURRICULUM, flatLessons, isUnlocked } from './domain/curriculum.js';
 import { GameSession } from './app/session.js';
 import { AudioEngine } from './app/audio.js';
-import { Runs, PersonalBests, Settings, KeyModelStore, Achievements } from './app/storage.js';
+import { Runs, PersonalBests, Settings, KeyModelStore, Achievements, CurriculumProgress } from './app/storage.js';
 import { icon } from './ui/icons.js';
 import { TypingSurface } from './ui/typing-surface.js';
 import { renderResults } from './ui/results-view.js';
@@ -30,6 +31,8 @@ const state = {
   lastPb: null,
   lastPerKey: [],
   lastNewAch: [],
+  lastLesson: null,     // the lesson object if the finished run was a lesson
+  lastLessonPass: null, // {passed, goal}
   settings: Settings.get(),
 };
 
@@ -47,11 +50,13 @@ function render() {
   let body = '';
   if (state.screen === 'results') body = resultsScreen();
   else if (state.screen === 'achievements') body = achievementsScreen();
+  else if (state.screen === 'learn') body = learnScreen();
   else body = homeScreen();
   app.innerHTML = topbar() + body + footer();
   bindChrome();
   if (state.screen === 'home') bindHome();
   if (state.screen === 'results') bindResults();
+  if (state.screen === 'learn') bindLearn();
 }
 
 function topbar() {
@@ -65,6 +70,7 @@ function topbar() {
     </div>
     <nav class="nav">
       <button data-nav="home" class="${state.screen === 'home' ? 'active' : ''}">Play</button>
+      <button data-nav="learn" class="${state.screen === 'learn' ? 'active' : ''}">Learn</button>
       <button data-nav="achievements" class="${state.screen === 'achievements' ? 'active' : ''}">Achievements</button>
     </nav>
     <div class="topbar-actions">
@@ -185,12 +191,39 @@ function achievementsScreen() {
   </div>`;
 }
 
+function learnScreen() {
+  const cleared = new Set(Object.keys(CurriculumProgress.get().cleared));
+  const units = CURRICULUM.units.map((unit) => {
+    const lessons = unit.lessons.map((lesson) => {
+      const done = cleared.has(lesson.id);
+      const open = isUnlocked(lesson.id, cleared);
+      const cls = done ? 'cleared' : open ? '' : 'locked';
+      const iconName = done ? 'check' : open ? 'play' : 'close';
+      const best = CurriculumProgress.get().cleared[lesson.id];
+      const bestLine = best ? `best ${best.netWpm} wpm · ${best.accuracy}%` : `goal ${lesson.goal.wpm} wpm · ${lesson.goal.acc}%`;
+      return `<button class="lesson ${cls}" data-lesson="${lesson.id}" ${open ? '' : 'disabled'}>
+        <div class="lname">${icon(iconName, 16)} ${lesson.name}</div>
+        <div class="lgoal">${bestLine}</div>
+      </button>`;
+    }).join('');
+    return `<div class="unit"><h3>${unit.title}</h3><div class="lessons">${lessons}</div></div>`;
+  }).join('');
+
+  const clearedCount = cleared.size;
+  const total = flatLessons().length;
+  return `<div class="units">
+    <div><h2 style="color:var(--strong);margin:0">Curriculum <span style="color:var(--dim);font-family:var(--mono);font-size:14px">${clearedCount} / ${total} lessons</span></h2>
+    <p style="color:var(--dim);font-family:var(--mono);font-size:13px;margin-top:6px">Clear a lesson by meeting its WPM and accuracy goal to unlock the next.</p></div>
+    ${units}
+  </div>`;
+}
+
 function resultsScreen() {
-  return renderResults(state.lastResult, state.lastPb, state.lastPerKey, state.lastNewAch);
+  return renderResults(state.lastResult, state.lastPb, state.lastPerKey, state.lastNewAch, state.lastLessonPass);
 }
 
 function footer() {
-  return `<div class="foot">Cadence v0.2.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
+  return `<div class="foot">Cadence v0.3.0 — web build of the portable domain core · vector icons only, no emoji</div>`;
 }
 
 // ---------------------------------------------------------------- bindings
@@ -239,11 +272,37 @@ function bindHome() {
   app.querySelector('[data-act="start"]').onclick = startRun;
 }
 
+function bindLearn() {
+  app.querySelectorAll('.lesson:not([disabled])').forEach((b) => {
+    b.onclick = () => {
+      const lesson = flatLessons().find((l) => l.id === b.dataset.lesson);
+      if (lesson) startLesson(lesson);
+    };
+  });
+}
+
+function startLesson(lesson, seed) {
+  const plan = Modes.lesson.createPlan({ lesson, seed, lang: 'en' });
+  state.session = new GameSession(plan);
+  state.modeId = 'lesson';
+  state.currentLesson = lesson;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.screen = 'playing';
+  renderPlaying(plan);
+}
+
 function bindResults() {
-  app.querySelector('[data-act="retry"]').onclick = () => startRun(state.lastResult.seed);
-  app.querySelector('[data-act="new"]').onclick = () => startRun();
+  app.querySelector('[data-act="retry"]').onclick = () => {
+    if (state.lastLesson) startLesson(state.lastLesson, state.lastResult.seed);
+    else startRun(state.lastResult.seed);
+  };
+  app.querySelector('[data-act="new"]').onclick = () => {
+    if (state.lastLesson) startLesson(state.lastLesson);
+    else startRun();
+  };
   app.querySelector('[data-act="home"]').onclick = () => {
-    state.screen = 'home';
+    state.screen = state.lastLesson ? 'learn' : 'home';
     render();
   };
   // heatmap toggle
@@ -273,6 +332,7 @@ function startRun(seed) {
   };
   const plan = mode.createPlan(opts);
   state.session = new GameSession(plan);
+  state.currentLesson = null;
   state.streak = 0;
   state.bestStreak = 0;
   state.screen = 'playing';
@@ -406,6 +466,16 @@ function onFinish(result) {
   const newly = evalAchievements(ctx, Achievements.unlocked());
   if (newly.length) Achievements.add(newly.map((a) => a.id));
 
+  // lesson pass/fail
+  state.lastLesson = state.currentLesson;
+  state.lastLessonPass = null;
+  if (state.currentLesson) {
+    const goal = state.currentLesson.goal;
+    const passed = result.netWpm >= goal.wpm && result.accuracy >= goal.acc;
+    state.lastLessonPass = { passed, goal };
+    if (passed) CurriculumProgress.clear(state.currentLesson.id, result);
+  }
+
   state.lastResult = result;
   state.lastPb = pb;
   state.lastPerKey = perKey;
@@ -413,6 +483,7 @@ function onFinish(result) {
   state.screen = 'results';
   render();
   if (pb.beaten) toast('New personal best', 'good');
+  if (state.lastLessonPass?.passed) toast('Lesson cleared', 'good');
   newly.forEach((a, i) => setTimeout(() => toast(`Unlocked: ${a.title}`, 'good'), 300 * (i + 1)));
 }
 

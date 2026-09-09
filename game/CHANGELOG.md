@@ -4,6 +4,20 @@ All notable changes to Cadence are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/); this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — 2026-09-09
+### Added
+- Curriculum: a 6-unit, 15-lesson learn-to-type course with per-lesson WPM +
+  accuracy goals and linear unlocking.
+- Learn tab with a lessons tree (cleared / open / locked states, goals & bests).
+- Internal `lesson` game mode with deterministic key-set-based text generation.
+- Lesson pass/fail banner on the results screen; progress persisted.
+- 6 curriculum unit tests (25 total).
+
+### Fixed
+- Lesson text now strictly respects the lesson's key set (ISSUE-0.3.0-1).
+- Excluded the internal lesson mode from the Play mode-picker (ISSUE-0.3.0-2).
+- Lesson-aware Retry/New/Home actions on the results screen (ISSUE-0.3.0-3).
+
 ## [0.2.0] — 2026-09-09
 ### Added
 - Achievements system: 12 achievements, an unlock engine, an Achievements screen,
@@ -49,5 +63,6 @@ adheres to [Semantic Versioning](https://semver.org/).
   core maps 1:1 to the architecture's C#/Avalonia design for a later port
   (ISSUE-0.1.0-1).
 
+[0.3.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.3.0
 [0.2.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.2.0
 [0.1.0]: https://github.com/NematUllah9812/Typing-game/releases/tag/v0.1.0

@@ -9,6 +9,43 @@ Severity: **blocker** (stops build/run) · **bug** (wrong behaviour) ·
 
 ---
 
+## v0.3.0
+
+### ISSUE-0.3.0-1 — Lesson key-set purity vs. real-word sprinkling
+- **Severity:** bug
+- **Symptom:** early lesson generator sometimes injected small real words (e.g.
+  "the") into a lesson whose key set didn't include those letters, so the
+  home-row lesson could show characters the user hadn't learned. The purity test
+  caught it.
+- **Root cause:** the "sprinkle a real word for rhythm" branch didn't verify the
+  word's letters were all within the lesson's key set.
+- **Fix:** the sprinkle branch now only picks a small word when *every* letter is
+  in `keys` (`[...w].every((c) => keys.includes(c))`). Verified by
+  `curriculum.test.js` "home-row lesson text only uses its key set".
+- **Status:** resolved.
+
+### ISSUE-0.3.0-2 — `lesson` mode leaked into the home mode picker
+- **Severity:** minor
+- **Symptom:** adding the internal `lesson` mode to the `Modes` map made it
+  appear as a selectable tile on the Play screen, which is wrong — lessons are
+  launched from the Learn tree.
+- **Root cause:** `listModes()` enumerated every entry in `Modes`.
+- **Fix:** introduced an `INTERNAL_MODES` set and filtered it out of
+  `listModes()`. The mode still works when invoked directly by the curriculum UI.
+- **Status:** resolved.
+
+### ISSUE-0.3.0-3 — Retry/Home ambiguity between lessons and free play
+- **Severity:** bug
+- **Symptom:** after a lesson, "Retry"/"New" would start a free-play run and
+  "Home" would go to the Play screen, losing the user's place in the course.
+- **Root cause:** the results actions assumed a single (free-play) flow.
+- **Fix:** tracked `state.lastLesson`; results actions now branch — Retry/New
+  restart the *lesson*, and Home returns to the *Learn* tree when the finished
+  run was a lesson.
+- **Status:** resolved.
+
+---
+
 ## v0.2.0
 
 ### ISSUE-0.2.0-1 — Achievement predicates could crash a run on bad input
